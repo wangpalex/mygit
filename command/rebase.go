@@ -3,7 +3,6 @@ package command
 import (
 	"flag"
 	"fmt"
-	"os"
 )
 
 type RebaseCommand struct {
@@ -27,40 +26,28 @@ func NewRebaseCommand(args []string) RebaseCommand {
 }
 
 func (c RebaseCommand) Exec() {
-	// Fetch the latest changes from the remote
-	if _, err := runCommand("git fetch origin"); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	// Rebase the current branch onto the specified branch
-	if _, err := runCommand(fmt.Sprintf("git rebase origin/%s", c.branch)); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	fmt.Println("Fetching origin")
+	runCommand("git fetch origin")
+
+	fmt.Printf("Rebasing to origin/%s\n", c.branch)
+	runCommand(fmt.Sprintf("git rebase origin/%s", c.branch))
 
 	if c.noSquash {
 		fmt.Println("Rebase complete")
 		return
 	}
-	// Do squash
-	// Get the first commit hash and message of the current branch
-	firstCommitHash, err := runCommand("git rev-list --reverse HEAD | head -n 1")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	// Reset the branch to the first commit, preserving the working directory
-	if _, err := runCommand(fmt.Sprintf("git reset --soft %s", firstCommitHash)); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	fmt.Println("Squashing commits")
+
+	commitMsg := c.commitMsg
+	if commitMsg == "" {
+		// Use first commit's message
+		firstCommit := runCommand(fmt.Sprintf("git rev-list --reverse HEAD ^origin/%s | head -n 1", c.branch))
+		commitMsg = runCommand(fmt.Sprintf("git log --format=%%B -n 1 %s", firstCommit))
 	}
 
-	if c.commitMsg != "" {
-		// Amend the first commit with all changes and the final commit message
-		if _, err := runCommand(fmt.Sprintf("git commit --amend -m \"%s\"", c.commitMsg)); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}
+	resetCommit := runCommand(fmt.Sprintf("git rev-list origin/%s --max-count=1", c.branch))
+	runCommand(fmt.Sprintf("git reset --soft %s", resetCommit))
+	runCommand(fmt.Sprintf("git commit -m \"%s\"", commitMsg))
+
 	fmt.Println("Rebase and squash complete")
 }

@@ -2,15 +2,17 @@ package command
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
 
-func runCommand(command string) (string, error) {
-	cmd := exec.Command("sh", "-c", command)
+func runCommand(cmdStr string) string {
+	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("command '%s' failed with error:\n%s", command, output)
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(output))
 }
